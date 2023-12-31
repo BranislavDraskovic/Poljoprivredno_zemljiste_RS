@@ -1,0 +1,89 @@
+import folium
+import geopandas as gpd
+from pyproj import CRS
+
+# Definišite legendu sa kodovima i bojama
+legend = {
+    '311': {'label': 'Listopadna šuma', 'color': '#8FBC8F'},  # Tamno zelena boja
+    '312': {'label': 'Četinarska šuma', 'color': 'black'},
+    '313': {'label': 'Mješovita šuma', 'color': 'darkgreen'},
+    # Dodajte ostale tipove šuma i boje prema vašim potrebama
+}
+
+# Učitajte podlogu OpenStreetMap (u projekciji EPSG:3857)
+m = folium.Map(location=[44, 18], zoom_start=8, tiles='OpenStreetMap')
+
+# Učitajte GeoJSON datoteku s podacima o šumama u RS
+sume_gdf = gpd.read_file('F:Nauka/Nauka 2023/Proba CLC RS/Sume_RS.shp')
+
+# Definišite funkciju za dobijanje boje i tooltip teksta u zavisnosti od tipa šume
+def get_style(feature):
+    code_18 = feature['properties']['code_18']
+    color = legend.get(code_18, {}).get('color', 'darkgreen')
+    label = legend.get(code_18, {}).get('label', 'N/A')
+    return {
+        'fillColor': color,
+        'color': 'black',
+        'weight': 0.1,
+        'fillOpacity': 0.7,
+        'tooltip': f'Tip šume: {label}'
+    }
+
+# Postavite projekciju podataka na EPSG:3857
+sume_gdf = sume_gdf.to_crs(CRS.from_epsg(3857))
+
+# Dodajte GeoJSON sloj s podacima o šumama na mapu
+folium.GeoJson(
+    sume_gdf,
+    name='Šume u RS',
+    style_function=get_style
+).add_to(m)
+
+# Dodajte MiniMap
+minimap = folium.plugins.MiniMap(
+    tile_layer='OpenStreetMap',
+    position='bottomright',
+    width=150,
+    height=150,
+    zoom_level_offset=-4
+)
+m.add_child(minimap)
+
+# Dodajte legendu
+legend_html = '''
+     <div style="position: fixed; 
+                 bottom: 50px; left: 50px; width: 150px; height: 70px; 
+                 border:2px solid grey; z-index:9999; background-color:white;
+                 opacity: 0.7;">
+     '''
+for code, values in legend.items():
+    legend_html += f'''<div style="display: flex; align-items: center; margin-bottom: 2px;">
+                         <div style="width: 18px; height: 18px; 
+                                     border: 1px solid black; 
+                                     background-color:{values['color']};">
+                         </div>
+                         <div style="padding-left: 5px;">{values['label']}</div>
+                      </div>
+                   '''
+legend_html += '</div>'
+m.get_root().html.add_child(folium.Element(legend_html))
+
+# Učitajte GeoJSON datoteku s podacima o granicama RS
+granice_rs_gdf = gpd.read_file('F:Nauka/Nauka 2023/Proba CLC RS/Granice_RS/Granice_RS.shp')
+
+# Postavite projekciju podataka na EPSG:3857
+granice_rs_gdf = granice_rs_gdf.to_crs(CRS.from_epsg(3857))
+
+# Dodajte GeoJSON sloj s podacima o granicama RS na mapu
+granice_rs_layer = folium.GeoJson(
+    granice_rs_gdf,
+    name='Granice RS',
+    style_function=lambda feature: {
+        'color': 'red',
+        'weight': 1,
+        'fillOpacity': 0
+    }
+).add_to(m)
+
+# Prikazati mapu
+m
